@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+internal/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+output/*
+!output/.gitkeep
+pyrightconfig.json

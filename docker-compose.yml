@@ -1,0 +1,15 @@
+# TODO: Complete this docker-compose.yml
+#
+# It should define at least one service that:
+#   1. Builds from the Dockerfile in this directory
+#   2. Mounts the local ./output directory to /app/output inside the container
+#   3. Runs the analysis pipeline on startup
+#
+# Bonus: add a second service for running the tests (`pytest tests/ -v`).
+#
+# The candidate evaluator will run:
+#   docker compose up --build
+# and expects to find the analysis outputs in ./output/ afterwards.
+
+# services:
+# TODO: define your service(s) here
