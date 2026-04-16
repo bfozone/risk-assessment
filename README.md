@@ -66,8 +66,8 @@ Feel free to note in `REPORT.md` where you leaned on AI and where you did not. O
 Accept the GitHub invitation you received by email, then:
 
 ```bash
-git clone git@github.com:<org>/bam-risk-assessment.git
-cd bam-risk-assessment
+git clone git@github.com:bfozone/risk-assessment.git
+cd risk-assessment
 
 # Create your own working branch
 git checkout -b candidate/<your-firstname-lastname>
@@ -110,7 +110,7 @@ Once you have pushed your branch, we:
 ## Repository layout
 
 ```text
-bam-risk-assessment/
+risk-assessment/
 ├── Dockerfile                  # YOU complete this
 ├── docker-compose.yml          # YOU complete this
 ├── .dockerignore
