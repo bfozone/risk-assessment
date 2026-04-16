@@ -1,10 +1,23 @@
-# TODO: Complete this Dockerfile.
-#
-# The image must:
-#   1. Provide a Python runtime with all dependencies installed
-#   2. Contain the source code, tests, and data
-#   3. Have an entry point that runs the analysis pipeline
-#   4. Write outputs to /app/output (which will be mounted as a volume)
-#
-# Your Dockerfile below:
+FROM python:3.13-slim
 
+# Install uv from its official image — no apt dependencies needed
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# ── Layer 1: dependencies (cached until pyproject.toml or uv.lock changes) ──
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# ── Layer 2: project source + tests ─────────────────────────────────────────
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY run_analysis.py setup_check.py ./
+RUN uv sync --frozen --no-dev
+
+# ── Layer 3: data (changes most frequently — keep last for cache efficiency) ─
+COPY data/ ./data/
+
+RUN mkdir -p output
+
+CMD ["uv", "run", "python", "run_analysis.py", "--output-dir", "/app/output"]

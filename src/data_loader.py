@@ -1,5 +1,7 @@
 """Data loading utilities for the risk assessment."""
 
+import duckdb
+import numpy as np
 import pandas as pd
 
 
@@ -11,7 +13,8 @@ def load_instruments(db_path: str = "data/reference.duckdb") -> pd.DataFrame:
     asset_class, sub_class, sector, currency, country, credit_rating,
     maturity_date, coupon_rate, modified_duration
     """
-    raise NotImplementedError("Implement this function")
+    with duckdb.connect(db_path, read_only=True) as con:
+        return con.execute("SELECT * FROM instruments").fetchdf()
 
 
 def load_positions(db_path: str = "data/reference.duckdb") -> pd.DataFrame:
@@ -33,7 +36,33 @@ def load_positions(db_path: str = "data/reference.duckdb") -> pd.DataFrame:
     instrument_id, quantity, market_value_chf, weight, snapshot_date,
     sub_class
     """
-    raise NotImplementedError("Implement this function")
+    sql = """
+        SELECT
+            p.portfolio_id,
+            p.instrument_id,
+            p.quantity,
+            p.market_value_chf,
+            p.weight,
+            p.snapshot_date,
+            i.sub_class,
+            i.instrument_name,
+            i.asset_class,
+            i.sector,
+            i.currency,
+            i.country,
+            i.credit_rating,
+            i.maturity_date,
+            i.coupon_rate,
+            i.modified_duration
+        FROM positions_history p
+        JOIN instruments i USING (instrument_id)
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY p.instrument_id
+            ORDER BY p.snapshot_date DESC
+        ) = 1
+    """
+    with duckdb.connect(db_path, read_only=True) as con:
+        return con.execute(sql).fetchdf()
 
 
 def load_prices(parquet_path: str = "data/prices.parquet") -> pd.DataFrame:
@@ -45,7 +74,7 @@ def load_prices(parquet_path: str = "data/prices.parquet") -> pd.DataFrame:
     Note: the raw file contains data quality issues. Use `clean_prices()`
     before computing returns.
     """
-    raise NotImplementedError("Implement this function")
+    return pd.read_parquet(parquet_path)
 
 
 def clean_prices(prices: pd.DataFrame) -> pd.DataFrame:
@@ -58,12 +87,36 @@ def clean_prices(prices: pd.DataFrame) -> pd.DataFrame:
       - Duplicate rows (same date + instrument with slightly different prices)
       - Outliers (clear fat-finger errors, e.g. a price 5x the surrounding values)
 
-    Implement a cleaning strategy that produces a usable price series. Document
-    your choices in the docstring or in REPORT.md.
+    Cleaning strategy:
+      1. Duplicates: for the same (date, instrument_id) pair, average the prices.
+         Averaging is preferred over keeping first/last because neither duplicate
+         is clearly authoritative; the mean minimises the perturbation.
+      2. Outliers: within each instrument's time series, flag any price whose
+         ratio to the rolling 5-day median exceeds 4x (or is below 0.25x).
+         Flagged values are replaced with NaN so they are treated identically
+         to genuine missing values in step 3.
+      3. Missing values (original NaNs + outlier-replaced NaNs): forward-fill
+         within each instrument, then back-fill to handle leading NaNs.
 
     Returns a cleaned DataFrame with the same columns as the input.
     """
-    raise NotImplementedError("Implement this function")
+    df = (
+        prices.groupby(["date", "instrument_id"], as_index=False)["price"]
+        .mean()
+        .sort_values(["instrument_id", "date"])
+        .reset_index(drop=True)
+    )
+
+    # Detect outliers: prices more than 4x or less than 0.25x the local rolling median.
+    rolling_med = df.groupby("instrument_id")["price"].transform(
+        lambda s: s.rolling(window=5, center=True, min_periods=1).median()
+    )
+    ratio = df["price"] / rolling_med
+    df.loc[(ratio > 4) | (ratio < 0.25), "price"] = np.nan
+
+    df["price"] = df.groupby("instrument_id")["price"].transform(lambda s: s.ffill().bfill())
+
+    return df
 
 
 def load_scenarios(
@@ -75,4 +128,4 @@ def load_scenarios(
     Returns a DataFrame with columns: scenario_id, scenario_name,
     instrument_id, shock_return, description
     """
-    raise NotImplementedError("Implement this function")
+    return pd.read_parquet(parquet_path)

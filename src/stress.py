@@ -21,4 +21,16 @@ def apply_scenarios(
             scenario_id, scenario_name, portfolio_return, pnl_chf
 
     """
-    raise NotImplementedError
+    merged = scenarios.merge(
+        positions[["instrument_id", "weight", "market_value_chf"]],
+        on="instrument_id",
+        how="inner",
+    )
+    merged = merged.assign(
+        weighted_return=merged["weight"] * merged["shock_return"],
+        weighted_pnl=merged["market_value_chf"] * merged["shock_return"],
+    )
+    return merged.groupby(["scenario_id", "scenario_name"], as_index=False).agg(
+        portfolio_return=("weighted_return", "sum"),
+        pnl_chf=("weighted_pnl", "sum"),
+    )

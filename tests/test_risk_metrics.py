@@ -8,16 +8,14 @@ Run from the project root:
     pytest tests/ -v
 """
 
-from __future__ import annotations
-
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import norm
 
-from src.backtest import run_rolling_backtest
-from src.data_loader import clean_prices, load_positions, load_prices
-from src.risk_metrics import (
+from backtest import run_rolling_backtest
+from data_loader import clean_prices, load_positions, load_prices
+from risk_metrics import (
     compute_component_var,
     compute_cvar_historical,
     compute_cvar_parametric,
@@ -25,7 +23,7 @@ from src.risk_metrics import (
     compute_var_parametric,
     kupiec_pof_test,
 )
-from src.stress import apply_scenarios
+from stress import apply_scenarios
 
 # ── Risk metric tests ───────────────────────────────────────────────
 

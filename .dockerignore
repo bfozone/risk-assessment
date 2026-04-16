@@ -16,3 +16,10 @@ output/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+
+# Development-only artefacts — not needed in the container
+notebooks/
+Makefile
+README.md
+REPORT.md
+.github/
