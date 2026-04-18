@@ -11,6 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import FuncFormatter
 
 
 def _to_json_serializable(obj: object) -> object:
@@ -50,7 +51,9 @@ def write_metrics_json(metrics: dict, output_dir: Path) -> Path:
 def write_backtest_json(backtest_results: dict, output_dir: Path) -> Path:
     """Write backtest results (breach dates, counts, Kupiec test) to JSON."""
     serializable = {
-        k: v for k, v in backtest_results.items() if k not in ("var_series", "actual_returns")
+        k: v
+        for k, v in backtest_results.items()
+        if k not in ("var_series", "actual_returns")
     }
     path = output_dir / "backtest.json"
     path.write_text(json.dumps(_to_json_serializable(serializable), indent=2))
@@ -86,20 +89,32 @@ def plot_backtest(
 
     colors = ["tab:red" if r < 0 else "tab:blue" for r in actual_returns]
     ax.bar(
-        actual_returns.index, actual_returns.values, color=colors, alpha=0.6, label="Daily return"
+        actual_returns.index,
+        actual_returns.to_numpy(),
+        color=colors,
+        alpha=0.6,
+        label="Daily return",
     )
     ax.plot(
-        var_series.index, -var_series.values, color="black", linewidth=1.2, label="VaR threshold"
+        var_series.index,
+        -var_series.to_numpy(),
+        color="black",
+        linewidth=1.2,
+        label="VaR threshold",
     )
 
     if breach_dates:
         breach_returns = actual_returns.loc[breach_dates]
         ax.scatter(
-            breach_returns.index, breach_returns.values, color="red", zorder=5, label="Breach"
+            breach_returns.index,
+            breach_returns.to_numpy(),
+            color="red",
+            zorder=5,
+            label="Breach",
         )
 
     ax.axhline(0, color="grey", linewidth=0.5)
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1%}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:.1%}"))
     ax.set_title("Rolling VaR Backtest")
     ax.set_xlabel("Date")
     ax.set_ylabel("Return")
@@ -156,7 +171,11 @@ def write_summary_text(
         elif isinstance(val, dict):
             lines.append(f"  {key}:")
             for k2, v2 in val.items():
-                lines.append(f"    {k2}: {v2:.4%}" if isinstance(v2, float) else f"    {k2}: {v2}")
+                lines.append(
+                    f"    {k2}: {v2:.4%}"
+                    if isinstance(v2, float)
+                    else f"    {k2}: {v2}"
+                )
         else:
             lines.append(f"  {key}: {val}")
 

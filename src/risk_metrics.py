@@ -1,8 +1,10 @@
 """Risk metric calculations."""
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, norm
+from scipy.stats import binom, chi2, norm
 
 
 def compute_var_historical(
@@ -101,6 +103,316 @@ def compute_component_var(
     port_vol = float(np.sqrt(weights @ cov_matrix @ weights))
     marginal_var = (cov_matrix @ weights) / port_vol * norm.ppf(confidence)
     return weights * marginal_var
+
+
+def compute_var_ewma(
+    returns: pd.Series,
+    confidence: float = 0.99,
+    lam: float = 0.94,
+) -> float:
+    """
+    Filtered Historical Simulation VaR using EWMA volatility scaling (Hull-White 1998).
+
+    Rescales each historical return by the ratio of the one-step-ahead EWMA
+    volatility forecast to the EWMA vol at the time of that observation, then
+    takes the quantile of the scaled returns.  This reacts faster to volatility
+    regime shifts than flat historical simulation.
+
+    Args:
+        returns: Series of portfolio returns.
+        confidence: VaR confidence level.
+        lam: EWMA decay factor (0.94 = RiskMetrics daily standard).
+
+    Returns:
+        VaR as a positive number.
+
+    """
+    r = np.asarray(returns, dtype=float)
+    n = len(r)
+    sigma2 = np.empty(n)
+    sigma2[0] = float(np.var(r))
+    for i in range(1, n):
+        sigma2[i] = lam * sigma2[i - 1] + (1.0 - lam) * r[i - 1] ** 2
+    sigma2_forecast = lam * sigma2[-1] + (1.0 - lam) * r[-1] ** 2
+    sigma_forecast = float(np.sqrt(sigma2_forecast))
+    sigma_hist = np.sqrt(np.maximum(sigma2, 1e-12))
+    scaled = r * sigma_forecast / sigma_hist
+    return float(-np.percentile(scaled, 100.0 * (1.0 - confidence)))
+
+
+def christoffersen_independence_test(
+    breach_indicator: pd.Series,
+) -> dict:
+    """
+    Christoffersen (1998) independence test for VaR breach clustering.
+
+    Tests H0: breach occurrences are independent across successive days.
+    A clustered sequence violates the iid Bernoulli assumption underlying
+    historical VaR and signals a volatility-regime failure mode.
+
+    Args:
+        breach_indicator: Binary series (1 = breach, 0 = no breach).
+
+    Returns:
+        Dictionary with transition counts, transition probabilities,
+        LR statistic, p-value, and reject_h0 flag.
+
+    """
+    b: np.ndarray = breach_indicator.astype(int).to_numpy()
+    n00 = int(np.sum((b[:-1] == 0) & (b[1:] == 0)))
+    n01 = int(np.sum((b[:-1] == 0) & (b[1:] == 1)))
+    n10 = int(np.sum((b[:-1] == 1) & (b[1:] == 0)))
+    n11 = int(np.sum((b[:-1] == 1) & (b[1:] == 1)))
+
+    pi_01 = n01 / (n00 + n01) if (n00 + n01) > 0 else 0.0
+    pi_11 = n11 / (n10 + n11) if (n10 + n11) > 0 else 0.0
+    pi_hat = (n01 + n11) / (n00 + n01 + n10 + n11) if (n00 + n01 + n10 + n11) > 0 else 0.0
+
+    def _slog(x: float) -> float:
+        return float(np.log(x)) if x > 0 else 0.0
+
+    lr_ind = 2.0 * (
+        n00 * _slog(1.0 - pi_01)
+        + n01 * _slog(pi_01)
+        + n10 * _slog(1.0 - pi_11)
+        + n11 * _slog(pi_11)
+        - (n00 + n10) * _slog(1.0 - pi_hat)
+        - (n01 + n11) * _slog(pi_hat)
+    )
+    p_ind = float(1.0 - chi2.cdf(lr_ind, df=1))
+
+    return {
+        "n00": n00,
+        "n01": n01,
+        "n10": n10,
+        "n11": n11,
+        "pi_01": pi_01,
+        "pi_11": pi_11,
+        "pi_hat": pi_hat,
+        "lr_independence": float(lr_ind),
+        "p_independence": p_ind,
+        "reject_independence": p_ind < 0.05,
+    }
+
+
+def christoffersen_pelletier_test(
+    breach_indicator: pd.Series,
+    confidence: float = 0.99,
+) -> dict:
+    """
+    Christoffersen-Pelletier (2004) duration-based VaR backtest.
+
+    Tests whether the waiting times between VaR breaches follow an i.i.d.
+    Geometric(p0) distribution — the implication of a correctly specified
+    model.  The exponential is used as a continuous approximation of the
+    geometric; the Weibull is the alternative (one extra shape parameter).
+
+    Weibull shape interpretation:
+      a = 1  -> exponential / geometric (null: independent breaches)
+      a < 1  -> hazard decreasing with time (violations cluster in
+                short-duration bursts; regime-based clustering)
+      a > 1  -> hazard increasing with time (over-dispersed; breaches
+                become more likely the longer since the last one)
+
+    Three LR statistics, all chi-squared under H0:
+      LR_uc  ~ chi2(1): unconditional coverage — mean duration = 1/p0
+      LR_ind ~ chi2(1): independence — Weibull shape a = 1
+      LR_cc  ~ chi2(2): conditional coverage — LR_uc + LR_ind
+
+    Only complete (uncensored) inter-breach durations are used.  The
+    first interval (start → first breach) and the last interval
+    (final breach → end of sample) are dropped as censored observations.
+    This is conservative; with few breaches it reduces power further.
+
+    Args:
+        breach_indicator: Binary series (1 = breach, 0 = no breach).
+        confidence: VaR confidence level.
+
+    Returns:
+        Dictionary with durations, fitted Weibull parameters, the three
+        LR statistics with p-values and reject flags, and a low-power
+        warning when fewer than 6 durations are available.
+
+    """
+    from scipy.stats import weibull_min
+
+    p0 = 1.0 - confidence
+    b: np.ndarray = breach_indicator.astype(int).to_numpy()
+    positions = np.where(b == 1)[0]
+    n_breaches = len(positions)
+
+    if n_breaches < 2:
+        return {
+            "error": "fewer than 2 breaches — cannot compute inter-breach durations",
+            "n_durations": 0,
+        }
+
+    durations = np.diff(positions).astype(float)
+    n = len(durations)
+
+    mean_expected = 1.0 / p0
+    mean_observed = float(np.mean(durations))
+
+    fit = weibull_min.fit(durations, floc=0)
+    shape_hat: float = cast(float, fit[0])
+    scale_hat: float = cast(float, fit[2])
+
+    def _ll(c: float, scale: float) -> float:
+        return float(np.sum(weibull_min.logpdf(durations, c=c, loc=0, scale=scale)))
+
+    ll_wb       = _ll(shape_hat,  scale_hat)
+    ll_exp_free = _ll(1.0,        mean_observed)
+    ll_null     = _ll(1.0,        mean_expected)
+
+    lr_uc  = 2.0 * (ll_exp_free - ll_null)
+    lr_ind = 2.0 * (ll_wb       - ll_exp_free)
+    lr_cc  = lr_uc + lr_ind
+
+    p_uc  = float(1.0 - chi2.cdf(max(lr_uc,  0.0), df=1))
+    p_ind = float(1.0 - chi2.cdf(max(lr_ind, 0.0), df=1))
+    p_cc  = float(1.0 - chi2.cdf(max(lr_cc,  0.0), df=2))
+
+    return {
+        "durations": durations,
+        "n_durations": n,
+        "mean_duration_observed": mean_observed,
+        "mean_duration_expected": mean_expected,
+        "wb_shape": float(shape_hat),
+        "wb_scale": float(scale_hat),
+        "lr_uc":  float(lr_uc),
+        "p_uc":   p_uc,
+        "reject_uc":  p_uc  < 0.05,
+        "lr_ind": float(lr_ind),
+        "p_ind":  p_ind,
+        "reject_ind": p_ind < 0.05,
+        "lr_cc":  float(lr_cc),
+        "p_cc":   p_cc,
+        "reject_cc":  p_cc  < 0.05,
+        "low_power_warning": n < 6,
+    }
+
+
+def basel_traffic_light(
+    n_observations: int,
+    n_breaches: int,
+    confidence: float = 0.99,
+) -> dict:
+    """
+    Basel Committee traffic light for VaR model validation.
+
+    Original calibration: 250 trading days, 99% VaR.
+      Green  (0-4 breaches): model likely correct.
+      Yellow (5-9 breaches): model suspect - capital multiplier add-on.
+      Red    (>=10 breaches): model rejected - mandatory review.
+
+    For non-standard sample sizes the zone boundaries are re-derived from
+    the same binomial CDF levels used in the Basel calibration
+    (CDF(4) ≈ 0.8909 and CDF(9) ≈ 0.9999 under Binom(250, 0.01)).
+
+    Returns:
+        Dictionary with zone, thresholds, capital add-on, and Basel reference
+        thresholds for a 250-day period.
+
+    """
+    p0 = 1.0 - confidence
+    green_max = int(binom.ppf(0.8909, n_observations, p0))
+    yellow_max = int(binom.ppf(0.9999, n_observations, p0))
+
+    if n_breaches <= green_max:
+        zone = "green"
+        addon = 0.00
+    elif n_breaches <= yellow_max:
+        zone = "yellow"
+        zone_width = max(yellow_max - green_max, 1)
+        excess = n_breaches - green_max
+        addon = round(0.40 + 0.45 * (excess - 1) / max(zone_width - 1, 1), 2)
+        addon = min(addon, 0.85)
+    else:
+        zone = "red"
+        addon = 1.00
+
+    return {
+        "zone": zone,
+        "n_breaches": n_breaches,
+        "green_max": green_max,
+        "yellow_max": yellow_max,
+        "capital_multiplier_addon": addon,
+        "basel_reference": {
+            "sample_days": 250,
+            "green_max": 4,
+            "yellow_max": 9,
+        },
+    }
+
+
+def es_coverage_test(
+    actual_returns: pd.Series,
+    var_series: pd.Series,
+    es_series: pd.Series,
+    n_bootstrap: int = 5000,
+    seed: int = 42,
+) -> dict:
+    """
+    Practical ES coverage test via bootstrap.
+
+    On breach days the average realised loss should equal the model's ES
+    estimate (coverage ratio ≈ 1.0).  A ratio significantly above 1.0
+    indicates the model systematically underestimates tail severity.
+
+    Rejects H0 when the entire 95% bootstrap CI lies above 1.0.
+
+    Args:
+        actual_returns: Realised daily return series.
+        var_series: Rolling VaR estimates (positive = loss threshold).
+        es_series: Rolling ES/CVaR estimates (positive).
+        n_bootstrap: Number of bootstrap resamples.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Dictionary with breach count, mean realised loss, mean ES estimate,
+        coverage ratio, bootstrap CI, and reject_h0 flag.
+
+    """
+    breach_mask = actual_returns < -var_series
+    breach_returns = actual_returns[breach_mask]
+    breach_es = es_series[breach_mask]
+
+    if len(breach_returns) == 0:
+        nan = float("nan")
+        return {
+            "n_breach_days": 0,
+            "mean_realised_loss": nan,
+            "mean_es_estimate": nan,
+            "es_coverage_ratio": nan,
+            "bootstrap_ci_95": (nan, nan),
+            "reject_h0": False,
+        }
+
+    mean_loss = float(-breach_returns.mean())
+    mean_es = float(breach_es.mean())
+    ratio = mean_loss / mean_es if mean_es > 0.0 else float("nan")
+
+    rng = np.random.default_rng(seed)
+    n = len(breach_returns)
+    boot_ratios = []
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)
+        b_loss = float(-breach_returns.iloc[idx].mean())
+        b_es = float(breach_es.iloc[idx].mean())
+        if b_es > 0.0:
+            boot_ratios.append(b_loss / b_es)
+
+    arr = np.array(boot_ratios)
+    ci = (float(np.percentile(arr, 2.5)), float(np.percentile(arr, 97.5)))
+
+    return {
+        "n_breach_days": n,
+        "mean_realised_loss": mean_loss,
+        "mean_es_estimate": mean_es,
+        "es_coverage_ratio": ratio,
+        "bootstrap_ci_95": ci,
+        "reject_h0": bool(ci[0] > 1.0),
+    }
 
 
 def kupiec_pof_test(

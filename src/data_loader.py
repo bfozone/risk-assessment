@@ -101,9 +101,9 @@ def clean_prices(prices: pd.DataFrame) -> pd.DataFrame:
     Returns a cleaned DataFrame with the same columns as the input.
     """
     df = (
-        prices.groupby(["date", "instrument_id"], as_index=False)["price"]
-        .mean()
-        .sort_values(["instrument_id", "date"])
+        prices.groupby(["date", "instrument_id"], as_index=False)
+        .agg({"price": "mean"})
+        .sort_values(by=["instrument_id", "date"])
         .reset_index(drop=True)
     )
 
