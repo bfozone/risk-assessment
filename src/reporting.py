@@ -49,11 +49,21 @@ def write_metrics_json(metrics: dict, output_dir: Path) -> Path:
 
 
 def write_backtest_json(backtest_results: dict, output_dir: Path) -> Path:
-    """Write backtest results (breach dates, counts, Kupiec test) to JSON."""
+    """Write backtest results (breach dates, counts, Kupiec test) to JSON.
+
+    Args:
+        backtest_results: Dictionary returned by run_rolling_backtest. Series
+            keys (var_series, cvar_series, actual_returns) are excluded from
+            the output.
+        output_dir: Directory to write the file in.
+
+    Returns:
+        Path to the written file.
+    """
     serializable = {
         k: v
         for k, v in backtest_results.items()
-        if k not in ("var_series", "actual_returns")
+        if k not in ("var_series", "cvar_series", "actual_returns")
     }
     path = output_dir / "backtest.json"
     path.write_text(json.dumps(_to_json_serializable(serializable), indent=2))
@@ -64,7 +74,15 @@ def write_scenarios_csv(
     scenario_results: pd.DataFrame,
     output_dir: Path,
 ) -> Path:
-    """Write stress scenario results to a CSV file."""
+    """Write stress scenario results to a CSV file.
+
+    Args:
+        scenario_results: DataFrame of scenario P&L results.
+        output_dir: Directory to write the file in.
+
+    Returns:
+        Path to the written file.
+    """
     path = output_dir / "scenarios.csv"
     scenario_results.to_csv(path, index=False)
     return path
@@ -75,52 +93,75 @@ def plot_backtest(
     actual_returns: pd.Series,
     breach_dates: list,
     output_dir: Path,
+    confidence: float = 0.99,
+    window: int = 60,
 ) -> Path:
-    """
-    Create and save the VaR backtest visualization as a PNG.
+    """Create and save the VaR backtest visualization as a PNG.
 
-    The plot shows:
-      - Daily portfolio returns (bars)
-      - Rolling VaR threshold (line)
-      - Breach points (markers)
+    The plot shows daily portfolio returns (bars), the rolling VaR threshold
+    (line), and breach points (markers).
 
+    Args:
+        var_series: Rolling VaR estimates indexed by date (positive values).
+        actual_returns: Realised daily portfolio returns indexed by date.
+        breach_dates: Dates on which actual loss exceeded the VaR estimate.
+        output_dir: Directory to write the PNG file in.
+        confidence: VaR confidence level used in the title and label.
+        window: Estimation window in days used in the title.
+
+    Returns:
+        Path to the saved PNG file.
     """
+    n_breaches = len(breach_dates)
+    n_obs = len(actual_returns)
+
     fig, ax = plt.subplots(figsize=(14, 5))
+    fig.patch.set_facecolor("white")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
-    colors = ["tab:red" if r < 0 else "tab:blue" for r in actual_returns]
-    ax.bar(
-        actual_returns.index,
-        actual_returns.to_numpy(),
-        color=colors,
-        alpha=0.6,
-        label="Daily return",
-    )
-    ax.plot(
-        var_series.index,
-        -var_series.to_numpy(),
-        color="black",
-        linewidth=1.2,
-        label="VaR threshold",
-    )
+    colors = ["#d95f02" if r < 0 else "#cccccc" for r in actual_returns]
+    ax.bar(actual_returns.index, actual_returns.to_numpy(), color=colors, alpha=0.7, width=1.0)
+
+    ax.plot(var_series.index, -var_series.to_numpy(), color="black", linewidth=1.5)
 
     if breach_dates:
         breach_returns = actual_returns.loc[breach_dates]
         ax.scatter(
             breach_returns.index,
             breach_returns.to_numpy(),
-            color="red",
+            color="#d95f02",
             zorder=5,
-            label="Breach",
+            s=50,
         )
 
-    ax.axhline(0, color="grey", linewidth=0.5)
+    ax.axhline(0, color="black", linewidth=0.4)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:.1%}"))
-    ax.set_title("Rolling VaR Backtest")
     ax.set_xlabel("Date")
-    ax.set_ylabel("Return")
-    ax.legend()
-    plt.tight_layout()
 
+    # Direct labels replace legend
+    last_date = var_series.index[-1]
+    ax.text(
+        last_date, float(-var_series.iloc[-1]),
+        f"  VaR {confidence:.0%}", fontsize=8, va="center", color="black",
+    )
+    if breach_dates:
+        first_breach = breach_dates[0]
+        ax.annotate(
+            f"{n_breaches} breaches",
+            xy=(first_breach, float(actual_returns.loc[first_breach])),
+            xytext=(10, -15), textcoords="offset points",
+            fontsize=8, color="#d95f02",
+        )
+
+    ax.set_title(
+        f"Model breached {n_breaches}/{n_obs} days "
+        f"({n_breaches/n_obs:.2%} vs {1-confidence:.2%} expected) "
+        f"— {window}-day window",
+        fontsize=10,
+    )
+
+    plt.tight_layout()
     path = output_dir / "backtest.png"
     fig.savefig(path, dpi=120)
     plt.close(fig)
@@ -128,7 +169,15 @@ def plot_backtest(
 
 
 def plot_correlation_heatmap(returns: pd.DataFrame, output_dir: Path) -> Path:
-    """Create and save a correlation heatmap of instrument returns as a PNG."""
+    """Create and save a correlation heatmap of instrument returns as a PNG.
+
+    Args:
+        returns: Wide-format DataFrame of daily returns, one column per instrument.
+        output_dir: Directory to write the PNG file in.
+
+    Returns:
+        Path to the saved PNG file.
+    """
     corr = returns.corr()
 
     fig, ax = plt.subplots(figsize=(14, 11))
@@ -155,7 +204,17 @@ def write_summary_text(
     scenario_results: pd.DataFrame,
     output_dir: Path,
 ) -> Path:
-    """Write a human-readable text summary of the analysis."""
+    """Write a human-readable text summary of the analysis.
+
+    Args:
+        metrics: Dictionary of computed risk metrics (VaR, CVaR, component VaR).
+        backtest_results: Dictionary returned by run_rolling_backtest.
+        scenario_results: DataFrame of scenario P&L results.
+        output_dir: Directory to write the file in.
+
+    Returns:
+        Path to the written file.
+    """
     kupiec = backtest_results.get("kupiec", {})
     lines = [
         "BAM Risk Assessment — Summary",

@@ -1,9 +1,11 @@
 services:
   analysis:
     build: .
+    runtime: runc
     volumes:
       - ./output:/app/output
 
   tests:
     build: .
+    runtime: runc
     command: ["uv", "run", "pytest", "tests/", "-v"]

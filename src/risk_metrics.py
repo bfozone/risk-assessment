@@ -1,7 +1,4 @@
 """Risk metric calculations."""
-
-from typing import cast
-
 import numpy as np
 import pandas as pd
 from scipy.stats import binom, chi2, norm
@@ -195,100 +192,51 @@ def christoffersen_independence_test(
     }
 
 
-def christoffersen_pelletier_test(
-    breach_indicator: pd.Series,
+def kupiec_pof_test(
+    n_observations: int,
+    n_breaches: int,
     confidence: float = 0.99,
+    significance: float = 0.05,
 ) -> dict:
     """
-    Christoffersen-Pelletier (2004) duration-based VaR backtest.
+    Kupiec Proportion of Failures (POF) test for VaR backtesting.
 
-    Tests whether the waiting times between VaR breaches follow an i.i.d.
-    Geometric(p0) distribution — the implication of a correctly specified
-    model.  The exponential is used as a continuous approximation of the
-    geometric; the Weibull is the alternative (one extra shape parameter).
-
-    Weibull shape interpretation:
-      a = 1  -> exponential / geometric (null: independent breaches)
-      a < 1  -> hazard decreasing with time (violations cluster in
-                short-duration bursts; regime-based clustering)
-      a > 1  -> hazard increasing with time (over-dispersed; breaches
-                become more likely the longer since the last one)
-
-    Three LR statistics, all chi-squared under H0:
-      LR_uc  ~ chi2(1): unconditional coverage — mean duration = 1/p0
-      LR_ind ~ chi2(1): independence — Weibull shape a = 1
-      LR_cc  ~ chi2(2): conditional coverage — LR_uc + LR_ind
-
-    Only complete (uncensored) inter-breach durations are used.  The
-    first interval (start → first breach) and the last interval
-    (final breach → end of sample) are dropped as censored observations.
-    This is conservative; with few breaches it reduces power further.
+    Tests H0: the observed breach rate is consistent with the expected rate.
 
     Args:
-        breach_indicator: Binary series (1 = breach, 0 = no breach).
+        n_observations: Number of days in the backtest period.
+        n_breaches: Number of observed VaR breaches.
         confidence: VaR confidence level.
+        significance: Significance level for hypothesis test.
 
     Returns:
-        Dictionary with durations, fitted Weibull parameters, the three
-        LR statistics with p-values and reject flags, and a low-power
-        warning when fewer than 6 durations are available.
-
+        Dictionary with keys: expected_breaches, observed_breaches,
+        expected_rate, observed_rate, test_statistic, p_value, reject_h0
     """
-    from scipy.stats import weibull_min
-
     p0 = 1.0 - confidence
-    b: np.ndarray = breach_indicator.astype(int).to_numpy()
-    positions = np.where(b == 1)[0]
-    n_breaches = len(positions)
+    t = n_observations
+    n = n_breaches
+    p_hat = n / t if t > 0 else 0.0
 
-    if n_breaches < 2:
-        return {
-            "error": "fewer than 2 breaches — cannot compute inter-breach durations",
-            "n_durations": 0,
-        }
+    # Likelihood ratio: LR = 2 * [N*log(p_hat/p0) + (T-N)*log((1-p_hat)/(1-p0))]
+    # Handle edge cases where p_hat is 0 or 1
+    if n == 0:
+        lr = 2.0 * t * np.log(1.0 / (1.0 - p0))
+    elif n == t:
+        lr = 2.0 * (t * np.log(1.0 / p0))
+    else:
+        lr = 2.0 * (n * np.log(p_hat / p0) + (t - n) * np.log((1.0 - p_hat) / (1.0 - p0)))
 
-    durations = np.diff(positions).astype(float)
-    n = len(durations)
-
-    mean_expected = 1.0 / p0
-    mean_observed = float(np.mean(durations))
-
-    fit = weibull_min.fit(durations, floc=0)
-    shape_hat: float = cast(float, fit[0])
-    scale_hat: float = cast(float, fit[2])
-
-    def _ll(c: float, scale: float) -> float:
-        return float(np.sum(weibull_min.logpdf(durations, c=c, loc=0, scale=scale)))
-
-    ll_wb       = _ll(shape_hat,  scale_hat)
-    ll_exp_free = _ll(1.0,        mean_observed)
-    ll_null     = _ll(1.0,        mean_expected)
-
-    lr_uc  = 2.0 * (ll_exp_free - ll_null)
-    lr_ind = 2.0 * (ll_wb       - ll_exp_free)
-    lr_cc  = lr_uc + lr_ind
-
-    p_uc  = float(1.0 - chi2.cdf(max(lr_uc,  0.0), df=1))
-    p_ind = float(1.0 - chi2.cdf(max(lr_ind, 0.0), df=1))
-    p_cc  = float(1.0 - chi2.cdf(max(lr_cc,  0.0), df=2))
+    p_value = float(1.0 - chi2.cdf(lr, df=1))
 
     return {
-        "durations": durations,
-        "n_durations": n,
-        "mean_duration_observed": mean_observed,
-        "mean_duration_expected": mean_expected,
-        "wb_shape": float(shape_hat),
-        "wb_scale": float(scale_hat),
-        "lr_uc":  float(lr_uc),
-        "p_uc":   p_uc,
-        "reject_uc":  p_uc  < 0.05,
-        "lr_ind": float(lr_ind),
-        "p_ind":  p_ind,
-        "reject_ind": p_ind < 0.05,
-        "lr_cc":  float(lr_cc),
-        "p_cc":   p_cc,
-        "reject_cc":  p_cc  < 0.05,
-        "low_power_warning": n < 6,
+        "expected_breaches": t * p0,
+        "observed_breaches": n,
+        "expected_rate": p0,
+        "observed_rate": p_hat,
+        "test_statistic": float(lr),
+        "p_value": p_value,
+        "reject_h0": p_value < significance,
     }
 
 
@@ -355,7 +303,7 @@ def es_coverage_test(
     """
     Practical ES coverage test via bootstrap.
 
-    On breach days the average realised loss should equal the model's ES
+    On breach days the average realized loss should equal the model's ES
     estimate (coverage ratio ≈ 1.0).  A ratio significantly above 1.0
     indicates the model systematically underestimates tail severity.
 
@@ -369,7 +317,7 @@ def es_coverage_test(
         seed: Random seed for reproducibility.
 
     Returns:
-        Dictionary with breach count, mean realised loss, mean ES estimate,
+        Dictionary with breach count, mean realized loss, mean ES estimate,
         coverage ratio, bootstrap CI, and reject_h0 flag.
 
     """
@@ -381,7 +329,7 @@ def es_coverage_test(
         nan = float("nan")
         return {
             "n_breach_days": 0,
-            "mean_realised_loss": nan,
+            "mean_realized_loss": nan,
             "mean_es_estimate": nan,
             "es_coverage_ratio": nan,
             "bootstrap_ci_95": (nan, nan),
@@ -407,58 +355,10 @@ def es_coverage_test(
 
     return {
         "n_breach_days": n,
-        "mean_realised_loss": mean_loss,
+        "mean_realized_loss": mean_loss,
         "mean_es_estimate": mean_es,
         "es_coverage_ratio": ratio,
         "bootstrap_ci_95": ci,
         "reject_h0": bool(ci[0] > 1.0),
     }
 
-
-def kupiec_pof_test(
-    n_observations: int,
-    n_breaches: int,
-    confidence: float = 0.99,
-    significance: float = 0.05,
-) -> dict:
-    """
-    Kupiec Proportion of Failures (POF) test for VaR backtesting.
-
-    Tests H0: the observed breach rate is consistent with the expected rate.
-
-    Args:
-        n_observations: Number of days in the backtest period.
-        n_breaches: Number of observed VaR breaches.
-        confidence: VaR confidence level.
-        significance: Significance level for hypothesis test.
-
-    Returns:
-        Dictionary with keys: expected_breaches, observed_breaches,
-        expected_rate, observed_rate, test_statistic, p_value, reject_h0
-
-    """
-    p0 = 1.0 - confidence
-    t = n_observations
-    n = n_breaches
-    p_hat = n / t if t > 0 else 0.0
-
-    # Likelihood ratio: LR = 2 * [N*log(p_hat/p0) + (T-N)*log((1-p_hat)/(1-p0))]
-    # Handle edge cases where p_hat is 0 or 1
-    if n == 0:
-        lr = 2.0 * t * np.log(1.0 / (1.0 - p0))
-    elif n == t:
-        lr = 2.0 * (t * np.log(1.0 / p0))
-    else:
-        lr = 2.0 * (n * np.log(p_hat / p0) + (t - n) * np.log((1.0 - p_hat) / (1.0 - p0)))
-
-    p_value = float(1.0 - chi2.cdf(lr, df=1))
-
-    return {
-        "expected_breaches": t * p0,
-        "observed_breaches": n,
-        "expected_rate": p0,
-        "observed_rate": p_hat,
-        "test_statistic": float(lr),
-        "p_value": p_value,
-        "reject_h0": p_value < significance,
-    }

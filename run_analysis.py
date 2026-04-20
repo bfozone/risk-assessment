@@ -21,7 +21,6 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from backtest import run_rolling_backtest
@@ -45,7 +44,18 @@ from stress import apply_scenarios
 
 
 def _build_returns(prices_path: Path, positions: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    """Load prices, clean them, and return per-instrument and portfolio returns."""
+    """Load prices, clean them, and compute per-instrument and portfolio returns.
+
+    Args:
+        prices_path: Path to the prices parquet file.
+        positions: DataFrame with columns ``instrument_id`` and ``weight``.
+
+    Returns:
+        Tuple of (returns, port_returns) where ``returns`` is a wide DataFrame
+        of daily instrument returns and ``port_returns`` is the weighted
+        portfolio return series, both restricted to the common instrument set.
+
+    """
     raw = load_prices(str(prices_path))
     clean = clean_prices(raw)
     prices_wide = clean.pivot(index="date", columns="instrument_id", values="price").sort_index()
@@ -58,8 +68,27 @@ def _build_returns(prices_path: Path, positions: pd.DataFrame) -> tuple[pd.DataF
     return returns[common], port_returns
 
 
-def _compute_metrics(port_returns: pd.Series, positions: pd.DataFrame, returns: pd.DataFrame) -> dict:
-    """Compute VaR/CVaR at 95% and 99%, plus component VaR grouped by sub_class."""
+def _compute_metrics(
+        port_returns: pd.Series,
+        positions: pd.DataFrame,
+        returns: pd.DataFrame
+    ) -> dict:
+    """Compute VaR/CVaR at 95% and 99%, plus component VaR grouped by sub_class.
+
+    Args:
+        port_returns: Weighted portfolio return series.
+        positions: DataFrame with columns ``instrument_id``, ``weight``, and
+            ``sub_class``.
+        returns: Wide DataFrame of daily instrument returns (instruments as
+            columns), restricted to the common instrument set.
+
+    Returns:
+        Dictionary with keys ``var_historical_95pct``, ``cvar_historical_95pct``,
+        ``var_parametric_95pct``, ``cvar_parametric_95pct`` (and ``_99pct``
+        variants), plus ``component_var_by_subclass`` mapping each sub-class
+        label to its aggregated 99% component VaR.
+
+    """
     metrics: dict = {}
 
     for conf in (0.95, 0.99):
@@ -70,7 +99,7 @@ def _compute_metrics(port_returns: pd.Series, positions: pd.DataFrame, returns: 
         metrics[f"cvar_parametric_{label}"] = compute_cvar_parametric(port_returns, conf)
 
     # Component VaR at 99% by instrument, aggregated to sub_class
-    weights_arr = positions.set_index("instrument_id").loc[returns.columns, "weight"].values
+    weights_arr = positions.set_index("instrument_id").loc[returns.columns, "weight"].to_numpy()
     cov = returns.cov().values
     comp_var = compute_component_var(weights_arr, cov, confidence=0.99)
 

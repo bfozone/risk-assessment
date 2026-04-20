@@ -20,4 +20,7 @@ COPY data/ ./data/
 
 RUN mkdir -p output
 
-CMD ["uv", "run", "python", "run_analysis.py", "--output-dir", "/app/output"]
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+CMD ["python", "run_analysis.py", "--output-dir", "/app/output"]

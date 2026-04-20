@@ -65,6 +65,49 @@ Each scenario specifies a `shock_return` per instrument, applied as an instantan
 
 Historical scenarios anchor the library to events that have actually occurred. Hypothetical scenarios extend coverage to factor combinations not seen historically — critical because stress testing is meant to cover the unobserved, not just replay the observed. A well-constructed library should include both.
 
+### 3.1 Current scenario library
+
+The current library contains three hypothetical scenarios:
+
+| Scenario | Primary risk factors stressed |
+| --- | --- |
+| SNB Emergency Rate Hike (+100bp) | Rates (level), bank/insurer equity |
+| European Sovereign Debt Stress | EU credit spreads, EUR equity, flight-to-quality CHF govvies |
+| Global Equity Market Crash | Equity beta (broad), mild credit widening, flight-to-quality |
+
+All three scenarios produce meaningful losses in the equity sleeves (SWISS\_EQUITY, EUR\_EQUITY) and partial offsets from CHF government bonds. The shock-matrix correlation analysis in §7 confirms this: the three scenarios share structural similarity in their equity-down / govvie-up pattern, covering "equities down" in three flavours rather than spanning the risk-factor space. No scenario stresses FX, credit spreads independently of rates, or tests a correlated sell-off across all asset classes simultaneously.
+
+A three-scenario library is a minimum viable starting point. For a multi-asset portfolio spanning rates, credit, equity, and FX, a serious library requires at minimum five to eight scenarios covering distinct regions of the factor space.
+
+### 3.2 Recommended scenario library extensions
+
+The following five scenario types are absent from the current library. Each targets a distinct risk factor or factor combination and would materially improve coverage.
+
+#### 1. Credit spread widening (independent of rates)
+
+A pure credit event — corporate spreads widen 150–300 bps across ratings, with little or no move in risk-free rates or equity. This stresses CHF\_CORP and EUR corporate credit without the equity-down channel that dominates the existing scenarios. It is the primary uncovered factor for the CHF\_CORP and EUR corporate credit sleeves, which currently receive only mild shocks (−2% to −4%) under the equity crash scenario.
+
+#### 2. FX shock (CHF/EUR and USD/CHF)
+
+A CHF appreciation of 5–10% against EUR and USD, analogous to the January 2015 SNB floor removal or March 2022 risk-off episodes. EUR\_EQUITY and EUR\_GOVT instruments are denominated in EUR; CHF/EUR moves directly affect their CHF mark-to-market value. The current scenarios specify no FX shocks — EUR-denominated positions are implicitly treated as fully hedged, which overstates diversification for an unhedged or partially hedged portfolio.
+
+#### 3. Liquidity crunch (correlated sell-off)
+
+A regime in which all risky asset classes sell off simultaneously and the usual flight-to-quality offset from government bonds fails. The Jul 7 2025 VaR breach documented in the backtest analysis is an example: a broad risk-off episode where even govvies cheapened as investors sought cash. In this scenario, correlation assumptions break down and the diversification benefit embedded in the component VaR framework does not materialise. Under the current three scenarios, government bonds always provide a partial offset; this scenario tests what happens when they do not.
+
+#### 4. Inflation shock (rates up, equities down)
+
+A stagflationary episode in which rates rise (bond prices fall via duration) while equities also sell off (valuation compression, margin pressure). The SNB rate hike scenario partially captures this but from a monetary-policy-defence mechanism — equities decline through the financial-sector channel, not the broad earnings-compression channel. An independent inflation scenario would apply a larger, more uniform rate shock across the curve and a simultaneous equity decline across all sectors, testing whether the portfolio's rate-sensitivity and equity-beta add rather than offset.
+
+#### 5. Historical replays
+
+At least two historical scenarios should be added to anchor the library to observed events:
+
+- **2008 Q4 (Lehman):** broad equity collapse (−40% over the quarter), credit spreads to multi-decade highs, funding market seizure. Representative of the correlated tail event the library is missing.
+- **March 2020 (COVID crash):** sharp equity drawdown (−30% peak-to-trough over three weeks), initial credit widening, followed by central bank intervention. Notable because the sell-off and recovery were unusually fast, testing liquidity assumptions.
+
+Historical scenarios have two advantages over hypothetical ones: (a) the factor moves are internally consistent by construction — they actually co-occurred — and (b) they provide a benchmark against which to calibrate the severity of hypothetical scenarios. The current library has no historical scenarios (see §3 type table above).
+
 ---
 
 ## 4. P&L Computation
