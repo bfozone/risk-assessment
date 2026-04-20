@@ -17,7 +17,7 @@ This document specifies the stress-testing methodology applied in the accompanyi
 - Stress P&L vs statistical risk (VaR / ES multiples)
 - Scenario library correlation and risk factor coverage
 
-**Documented as outlook** (not implemented; see §6):
+**Documented as outlook** (not implemented; see section 6):
 
 - Scenario-to-limit distance (severity ranking against defined loss limits)
 - Sensitivity analysis (uniform shock scaling)
@@ -27,7 +27,6 @@ This document specifies the stress-testing methodology applied in the accompanyi
 
 - Regulatory applicability and entity-specific requirements
 - Severity classification thresholds and escalation triggers (defined by the institution's risk appetite framework)
-- Scenario governance — proposal, approval, library refresh, escalation
 - Scenario library construction criteria — admissibility, severity calibration, plausibility
 - Hedging treatment under stress — basis risk, hedge effectiveness, counterparty risk
 - Model validation and independent review
@@ -61,7 +60,7 @@ Each scenario specifies a `shock_return` per instrument, applied as an instantan
 | --- | --- | --- |
 | Historical | Replays a documented crisis | Not in current dataset |
 | Hypothetical | Plausible-but-unobserved shocks | SNB rate hike, EU sovereign, equity crash |
-| Reverse | Identifies factor combinations producing a specified loss | Not implemented (outlook — §6) |
+| Reverse | Identifies factor combinations producing a specified loss | Not implemented (outlook — section 6) |
 
 Historical scenarios anchor the library to events that have actually occurred. Hypothetical scenarios extend coverage to factor combinations not seen historically — critical because stress testing is meant to cover the unobserved, not just replay the observed. A well-constructed library should include both.
 
@@ -75,7 +74,7 @@ The current library contains three hypothetical scenarios:
 | European Sovereign Debt Stress | EU credit spreads, EUR equity, flight-to-quality CHF govvies |
 | Global Equity Market Crash | Equity beta (broad), mild credit widening, flight-to-quality |
 
-All three scenarios produce meaningful losses in the equity sleeves (SWISS\_EQUITY, EUR\_EQUITY) and partial offsets from CHF government bonds. The shock-matrix correlation analysis in §7 confirms this: the three scenarios share structural similarity in their equity-down / govvie-up pattern, covering "equities down" in three flavours rather than spanning the risk-factor space. No scenario stresses FX, credit spreads independently of rates, or tests a correlated sell-off across all asset classes simultaneously.
+All three scenarios produce meaningful losses in the equity sleeves (SWISS\_EQUITY, EUR\_EQUITY) and partial offsets from CHF government bonds. The shock-matrix correlation analysis in section 7 confirms this: the three scenarios share structural similarity in their equity-down / govvie-up pattern, covering "equities down" in three flavours rather than spanning the risk-factor space. No scenario stresses FX, credit spreads independently of rates, or tests a correlated sell-off across all asset classes simultaneously.
 
 A three-scenario library is a minimum viable starting point. For a multi-asset portfolio spanning rates, credit, equity, and FX, a serious library requires at minimum five to eight scenarios covering distinct regions of the factor space.
 
@@ -106,7 +105,7 @@ At least two historical scenarios should be added to anchor the library to obser
 - **2008 Q4 (Lehman):** broad equity collapse (−40% over the quarter), credit spreads to multi-decade highs, funding market seizure. Representative of the correlated tail event the library is missing.
 - **March 2020 (COVID crash):** sharp equity drawdown (−30% peak-to-trough over three weeks), initial credit widening, followed by central bank intervention. Notable because the sell-off and recovery were unusually fast, testing liquidity assumptions.
 
-Historical scenarios have two advantages over hypothetical ones: (a) the factor moves are internally consistent by construction — they actually co-occurred — and (b) they provide a benchmark against which to calibrate the severity of hypothetical scenarios. The current library has no historical scenarios (see §3 type table above).
+Historical scenarios have two advantages over hypothetical ones: (a) the factor moves are internally consistent by construction — they actually co-occurred — and (b) they provide a benchmark against which to calibrate the severity of hypothetical scenarios. The current library has no historical scenarios (see section 3 type table above).
 
 ---
 
@@ -146,7 +145,7 @@ Stress losses are benchmarked against statistical risk measures computed from th
 
 $$\text{VaR multiple}_s = \frac{|\text{Stress return}_s|}{\text{VaR}_{99\%,\,1d}}$$
 
-where $\text{VaR}_{99\%,\,1d}$ is the 99% one-day VaR estimated from the full backtest window (as defined in `methodology.md` §6.1).
+where $\text{VaR}_{99\%,\,1d}$ is the 99% one-day VaR estimated from the full backtest window (as defined in `methodology.md` section 6.1).
 
 ### 5.1 Interpretation
 
@@ -166,20 +165,20 @@ For a defined loss limit $L$ and a scenario return $r_s$ (both negative for scen
 
 **Why not implemented.** The loss limits are defined externally in the institution's risk appetite framework. Once confirmed, the computation is trivial.
 
-**Limitation.** This is not a reverse stress test in the BCBS (2009) sense — it searches only within the existing library along the single dimension of uniform scaling. For a genuine reverse stress test, see §6.3.
+**Limitation.** This is not a reverse stress test in the BCBS (2009) sense — it searches only within the existing library along the single dimension of uniform scaling. For a genuine reverse stress test, see section 6.3.
 
 ### 6.2 Sensitivity analysis
 
 Sensitivity analysis answers *"how does portfolio stress loss change with the severity or composition of the shocks?"* The design space is broad and the simplest variants are often not the most informative:
 
-- **Uniform scaling.** Multiply all shocks in a scenario by a common factor $k$ and trace the loss profile. Because the shock model is linear (§4.1), this adds no information beyond the base result — it is a recomputation of the same scenario at different severities.
+- **Uniform scaling.** Multiply all shocks in a scenario by a common factor $k$ and trace the loss profile. Because the shock model is linear (section 4.1), this adds no information beyond the base result — it is a recomputation of the same scenario at different severities.
 - **Single-factor shifts.** Hold the base scenario fixed and vary one risk-factor dimension (e.g. the rates-shock component, the equity-shock component) to isolate that factor's contribution to the total loss.
 - **Non-uniform scaling within a scenario.** Scale different asset classes or risk factors at different rates to explore which combination drives the loss (e.g. amplify the credit component while holding rates fixed).
 - **Stress-of-stress.** Apply an incremental shock on top of the base scenario to test robustness of hedges and of the scenario assumptions themselves.
 
 **Why not implemented.** Each of these variants requires either defined loss limits (to identify meaningful crossings) or a factor-level representation of the portfolio (which the current notebook does not have). The uniform-scaling variant is the simplest but also the least useful, given linearity.
 
-**Recommendation when implemented.** Prefer single-factor and non-uniform variants over uniform scaling. Uniform scaling is essentially a visualization of §6.1 and carries no additional information.
+**Recommendation when implemented.** Prefer single-factor and non-uniform variants over uniform scaling. Uniform scaling is essentially a visualization of section 6.1 and carries no additional information.
 
 ### 6.3 Factor-space reverse stress test
 
@@ -226,7 +225,7 @@ A more complete analysis maps scenarios to an explicit risk-factor taxonomy (rat
 ## 9. Glossary
 
 - **Hypothetical scenario:** a plausible-but-unobserved shock specification, in contrast to a historical scenario that replays a documented crisis.
-- **Reverse stress test:** identification of the factor combination that would produce a specified loss level. In the strict BCBS (2009) sense, this requires searching over the risk-factor space (see §6.3). A simplified scenario-to-limit distance computation is described in §6.1. Neither is currently implemented in the notebook.
+- **Reverse stress test:** identification of the factor combination that would produce a specified loss level. In the strict BCBS (2009) sense, this requires searching over the risk-factor space (see section 6.3). A simplified scenario-to-limit distance computation is described in section 6.1. Neither is currently implemented in the notebook.
 - **Scenario:** a specification of shock returns for each instrument in the portfolio, representing a hypothesized market event.
 - **Sensitivity analysis:** evaluation of portfolio P&L under uniform scaling of all shocks in a scenario.
 - **Shock:** the return assigned to an instrument under a scenario.
@@ -240,8 +239,8 @@ A more complete analysis maps scenarios to an explicit risk-factor taxonomy (rat
 
 ### Document Control
 
-| Version | Date | Author | Change |
-| --- | --- | --- | --- |
-| 1.0 | 2026-04-18 | Martin Diergardt | Initial version |
+| Version | Date       | Author           | Tooling     | Change          |
+| ------- | ---------- | ---------------- | ----------- | --------------- |
+| 1.0     | 2026-04-18 | Martin Diergardt | Claude Code | Initial version |
 
 Methodology updates are tracked here. Scenario library updates are tracked separately in the scenario register.

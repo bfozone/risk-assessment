@@ -90,9 +90,7 @@ def subclass_stress_breakdown(
     """
     attr = instrument_stress_attribution(positions, scenarios)
     return (
-        attr.groupby(["scenario_id", "scenario_name", "sub_class"])[
-            ["weighted_return", "pnl_chf"]
-        ]
+        attr.groupby(["scenario_id", "scenario_name", "sub_class"])[["weighted_return", "pnl_chf"]]
         .sum()
         .reset_index()
     )

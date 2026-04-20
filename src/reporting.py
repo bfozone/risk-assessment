@@ -142,21 +142,27 @@ def plot_backtest(
     # Direct labels replace legend
     last_date = var_series.index[-1]
     ax.text(
-        last_date, float(-var_series.iloc[-1]),
-        f"  VaR {confidence:.0%}", fontsize=8, va="center", color="black",
+        last_date,
+        float(-var_series.iloc[-1]),
+        f"  VaR {confidence:.0%}",
+        fontsize=8,
+        va="center",
+        color="black",
     )
     if breach_dates:
         first_breach = breach_dates[0]
         ax.annotate(
             f"{n_breaches} breaches",
             xy=(first_breach, float(actual_returns.loc[first_breach])),
-            xytext=(10, -15), textcoords="offset points",
-            fontsize=8, color="#d95f02",
+            xytext=(10, -15),
+            textcoords="offset points",
+            fontsize=8,
+            color="#d95f02",
         )
 
     ax.set_title(
         f"Model breached {n_breaches}/{n_obs} days "
-        f"({n_breaches/n_obs:.2%} vs {1-confidence:.2%} expected) "
+        f"({n_breaches / n_obs:.2%} vs {1 - confidence:.2%} expected) "
         f"— {window}-day window",
         fontsize=10,
     )
@@ -230,11 +236,7 @@ def write_summary_text(
         elif isinstance(val, dict):
             lines.append(f"  {key}:")
             for k2, v2 in val.items():
-                lines.append(
-                    f"    {k2}: {v2:.4%}"
-                    if isinstance(v2, float)
-                    else f"    {k2}: {v2}"
-                )
+                lines.append(f"    {k2}: {v2:.4%}" if isinstance(v2, float) else f"    {k2}: {v2}")
         else:
             lines.append(f"  {key}: {val}")
 

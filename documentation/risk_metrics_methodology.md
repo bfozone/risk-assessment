@@ -129,6 +129,6 @@ where $\Sigma$ is the covariance matrix, $\mathbf{w}$ the weight vector, and $\s
 
 ## 7. Document control
 
-| Version | Date       | Author           | Change          |
-|---------|------------|------------------|-----------------|
-| 1.0     | 2026-04-19 | Martin Diergardt | Initial version |
+| Version   | Date         | Author           | Tooling     | Change          |
+| --------- | ------------ | ---------------- | ----------- | --------------- |
+| 1.0       | 2026-04-19   | Martin Diergardt | Claude Code | Initial version |

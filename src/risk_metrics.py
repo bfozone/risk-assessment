@@ -1,4 +1,5 @@
 """Risk metric calculations."""
+
 import numpy as np
 import pandas as pd
 from scipy.stats import binom, chi2, norm
@@ -361,4 +362,3 @@ def es_coverage_test(
         "bootstrap_ci_95": ci,
         "reject_h0": bool(ci[0] > 1.0),
     }
-
