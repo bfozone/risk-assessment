@@ -10,3 +10,4 @@ build/
 output/*
 !output/.gitkeep
 pyrightconfig.json
+.markdownlint-cli2.yaml
