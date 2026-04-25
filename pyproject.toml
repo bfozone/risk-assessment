@@ -1,7 +1,7 @@
 [project]
-name = "bam-risk-assessment"
+name = "Risk Assessment"
 version = "1.0.0"
-description = "BAM Risk Analytics Take-Home Assessment"
+description = "Risk Analytics Take-Home Assessment"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",

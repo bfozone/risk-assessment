@@ -10,3 +10,6 @@ build/
 output/*
 !output/.gitkeep
 pyrightconfig.json
+jupyter/
+.DS_Store
+Thumbs.db

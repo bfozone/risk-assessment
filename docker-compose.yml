@@ -13,3 +13,43 @@
 
 # services:
 # TODO: define your service(s) here
+
+
+#List of services
+# - Risk Engine
+# - Risk Dashboard
+# - Tests
+
+services:
+  risk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: risk-pipeline
+    volumes:
+      - ./output:/app/output
+    command: python run_analysis.py
+
+  risk-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: risk-dashboard
+    command: streamlit run dashboard/streamlit_app.py --server.address=0.0.0.0 --server.port=8501
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./output:/app/output
+    depends_on:
+      - risk
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: risk-tests
+    command: pytest tests/ -v
+    volumes:
+      - ./output:/app/output
+    profiles:
+      - test
