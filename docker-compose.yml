@@ -1,0 +1,33 @@
+# docker-compose.yml
+#
+# WHAT IS DOCKER COMPOSE?
+#   Docker Compose lets you define and run multi-container applications
+#   using a single YAML configuration file.
+#   Here we only have one service (risk-pipeline), but compose also handles
+#   the volume mount that makes output files appear on your host machine.
+#
+# HOW TO USE:
+#   docker compose up --build   ← build image + run the pipeline
+#   docker compose down         ← stop and remove containers
+#
+# AFTER RUNNING:
+#   The ./output/ directory on your laptop will contain all the result files.
+
+services:
+  risk-pipeline:
+    # 'build: .' means: use the Dockerfile in the current directory
+    build: .
+
+    # VOLUME MOUNT:
+    #   Syntax: host_path:container_path
+    #   ./output  → your laptop's ./output/ folder
+    #   /app/output → the /app/output/ folder inside the container
+    #
+    #   When run_analysis.py writes to /app/output/backtest.json,
+    #   that file immediately appears in ./output/backtest.json on your host.
+    #   This is how we "extract" results from the container.
+    volumes:
+      - ./output:/app/output
+
+    # We don't need a restart policy — this is a one-shot pipeline job,
+    # not a long-running service. It runs, writes output, then exits.

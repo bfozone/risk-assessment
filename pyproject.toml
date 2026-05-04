@@ -1,0 +1,68 @@
+[project]
+name = "bam-risk-assessment"
+version = "1.0.0"
+description = "BAM Risk Analytics Take-Home Assessment"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "duckdb>=0.9",
+    "pyarrow>=14.0",
+    "scipy>=1.11",
+    "matplotlib>=3.7",
+    "pytest>=7.4",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "UP",        # pyupgrade
+    "B",         # flake8-bugbear
+    "SIM",       # flake8-simplify
+    "RUF",       # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use pytest conventions that conflict with some strict rules.
+"tests/**/*.py" = [
+    "S101",     # assert is pytest idiomatic
+    "PLR2004",  # magic values are fine in test assertions
+    "D",        # docstrings are optional in tests
+    "ANN",      # type annotations are optional in tests
+    "INP001",   # tests/ is not a package
+    "NPY002",   # np.random.seed is fine in tests for reproducibility
+]
+# setup_check.py is a diagnostic utility, not production code.
+"setup_check.py" = [
+    "T201",     # print is intentional
+    "BLE001",   # broad exceptions are intentional (testing if imports work)
+    "PLC0415",  # late imports are intentional (testing import availability)
+    "C901",     # complexity is fine for a single check function
+    "ANN",      # no type annotations needed
+    "D",        # no docstrings needed
+    "S108",     # hardcoded /tmp is fine for a smoke test
+    "ICN001",   # matplotlib.use("Agg") requires the full import name
+    "PERF",     # performance rules irrelevant here
+]
+
+[tool.basedpyright]
+include = ["src", "tests", "run_analysis.py", "setup_check.py"]
+extraPaths = ["."]
+reportImplicitRelativeImport = false
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportMissingParameterType = false
+reportUnusedCallResult = false
