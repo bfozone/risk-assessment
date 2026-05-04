@@ -1,57 +1,18 @@
-"""Risk metric calculations.
-
-KEY CONCEPT: What is VaR?
-  Value at Risk answers the question: "How much could we lose today?"
-  VaR at 99% confidence means: "We are 99% confident our loss will not
-  exceed X". X is the VaR number.
-
-  Convention in this codebase (industry standard):
-    VaR is reported as a POSITIVE number representing a LOSS.
-    So VaR = 0.025 means "we expect at most a 2.5% loss".
-
-THREE METHODS:
-  1. Historical:  look at actual past returns and take a percentile.
-  2. Parametric:  assume returns are normally distributed and use a formula.
-  3. EWMA:        like historical, but recent days count more than old days.
-
-IMPORTANT MATHS NOTATION:
-  np.quantile(x, 0.01) = the value below which 1% of observations fall
-  norm.ppf(0.99)        = the z-score at 99th percentile ≈ 2.326
-  norm.pdf(z)           = the height of the normal bell curve at point z
-"""
+"""Risk metric calculations."""
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm, chi2
 
 
-# ─────────────────────────────────────────────
-# 1. HISTORICAL VaR
-# ─────────────────────────────────────────────
-
 def compute_var_historical(
     returns: pd.Series,
-    confidence: float = 0.99,
-) -> float:
+    confidence: float = 0.99,) -> float:
     """Compute Value-at-Risk using historical simulation.
-
-    METHOD:
-      Sort all past returns from worst to best.
-      The VaR is at the (1 - confidence) percentile — i.e., the return
-      that was only beaten (downward) by (1-confidence)% of days.
-
-    EXAMPLE:
-      With 1000 returns at 99% confidence:
-        We sort the 1000 returns.
-        VaR = -return_at_rank_10   (the 10th worst day)
-        On 99% of days, losses were smaller than this.
-
     Args:
         returns: Series of daily portfolio returns (e.g. 0.01 = +1%).
         confidence: e.g. 0.99 for 99% VaR.
-
     Returns
-    -------
     VaR as a positive number (a loss magnitude).
     """
     # np.quantile at (1 - confidence) gives the left tail value (a negative number).
@@ -59,27 +20,12 @@ def compute_var_historical(
     return -float(np.quantile(returns, 1.0 - confidence))
 
 
-# ─────────────────────────────────────────────
-# 2. HISTORICAL CVaR (Expected Shortfall)
-# ─────────────────────────────────────────────
-
 def compute_cvar_historical(
     returns: pd.Series,
-    confidence: float = 0.99,
-) -> float:
+    confidence: float = 0.99,) -> float:
+    
     """Compute Conditional VaR (Expected Shortfall) using historical simulation.
-
-    CVaR answers: "On the days where we DO exceed VaR, how bad is it on average?"
-    It is always >= VaR, because it averages the worst tail, not just its edge.
-
-    METHOD:
-      1. Find VaR threshold.
-      2. Collect all returns worse than -VaR (the tail losses).
-      3. Return their average, negated to be a positive loss.
-
-    Returns
-    -------
-    CVaR as a positive number.
+    Returns: CVaR as a positive number.
     """
     var = compute_var_historical(returns, confidence)
     # Select only the tail: returns that are worse (more negative) than -VaR
@@ -92,16 +38,11 @@ def compute_cvar_historical(
     return -float(tail_returns.mean())
 
 
-# ─────────────────────────────────────────────
-# 3. PARAMETRIC VaR  (variance-covariance method)
-# ─────────────────────────────────────────────
-
 def compute_var_parametric(
     returns: pd.Series,
-    confidence: float = 0.99,
-) -> float:
-    """Compute VaR using the parametric (variance-covariance) method.
+    confidence: float = 0.99,) -> float:
 
+    """Compute VaR using the parametric (variance-covariance) method.
     ASSUMPTION: returns follow a Normal (Gaussian) distribution.
 
     FORMULA:
@@ -114,10 +55,6 @@ def compute_var_parametric(
       z     = norm.ppf(confidence) — the z-score at the given confidence level
               For 99%, z ≈ 2.326.  For 95%, z ≈ 1.645.
 
-    INTUITION:
-      The formula says: "start at the average return (mu),
-      then go z standard deviations below it — that's our loss threshold."
-
     Returns
     -------
     VaR as a positive number.
@@ -128,9 +65,6 @@ def compute_var_parametric(
     return -mu + z * sigma
 
 
-# ─────────────────────────────────────────────
-# 4. PARAMETRIC CVaR
-# ─────────────────────────────────────────────
 
 def compute_cvar_parametric(
     returns: pd.Series,
@@ -162,10 +96,6 @@ def compute_cvar_parametric(
     cvar = -mu + sigma * norm.pdf(z) / (1.0 - confidence)
     return cvar
 
-
-# ─────────────────────────────────────────────
-# 5. EWMA-WEIGHTED VaR AND CVaR
-# ─────────────────────────────────────────────
 
 def _ewma_weights(n: int, decay: float) -> np.ndarray:
     """Compute EWMA weights for n observations, newest observation last.
@@ -215,7 +145,7 @@ def _ewma_weights(n: int, decay: float) -> np.ndarray:
 def compute_var_ewma(
     returns: pd.Series,
     confidence: float = 0.99,
-    decay: float = 0.99,
+    decay: float = 0.98,
 ) -> float:
     """Compute EWMA-weighted historical VaR.
 
@@ -227,19 +157,6 @@ def compute_var_ewma(
       2. Sort returns from worst to best, carrying their weights along.
       3. Walk from the worst return upward, accumulating weights.
       4. The VaR is the return at which cumulative weight crosses (1 - confidence).
-
-    WHY A WEIGHTED QUANTILE?
-      A regular quantile asks: "What return is beaten by exactly p% of days?"
-      A weighted quantile asks: "What return accounts for the worst p% of
-      the total probability mass?" — where probability mass = EWMA weights.
-
-    INTUITION WITH AN EXAMPLE:
-      Suppose confidence=0.99, so we're looking for the 1% tail.
-      With equal weights (historical VaR) on 100 days, we look at day 1
-      (the worst 1%). With EWMA, if that worst day was 2 years ago, its
-      weight might be tiny, so we need to go further into the tail to
-      accumulate 1% of weight — the model "discounts" old stress events.
-      Conversely, a very recent crash gets high weight and pushes VaR up.
 
     Args:
         returns: Series of daily returns (newest last, or date-indexed).
@@ -275,7 +192,7 @@ def compute_var_ewma(
 def compute_cvar_ewma(
     returns: pd.Series,
     confidence: float = 0.99,
-    decay: float = 0.99,
+    decay: float = 0.98,
 ) -> float:
     """Compute EWMA-weighted CVaR (Expected Shortfall).
 
@@ -287,11 +204,6 @@ def compute_cvar_ewma(
       2. Identify which returns are in the tail (return < -VaR).
       3. Compute their weighted average: sum(w_i * r_i) / sum(w_i) for tail.
       4. Negate to report as a positive loss.
-
-    WHY WEIGHTED AVERAGE AND NOT PLAIN AVERAGE?
-      We want the expected loss *according to the EWMA probability measure*.
-      A plain average would give equal importance to a crash from 2 years
-      ago and one from last week — but EWMA says last week matters more.
 
     Returns
     -------
@@ -321,9 +233,6 @@ def compute_cvar_ewma(
     return -weighted_mean_loss
 
 
-# ─────────────────────────────────────────────
-# 6. COMPONENT VaR  (Euler decomposition)
-# ─────────────────────────────────────────────
 
 def compute_component_var(
     weights: np.ndarray,
@@ -386,9 +295,6 @@ def compute_component_var(
     return component_var
 
 
-# ─────────────────────────────────────────────
-# 7. KUPIEC PROPORTION OF FAILURES TEST
-# ─────────────────────────────────────────────
 
 def kupiec_pof_test(
     n_observations: int,

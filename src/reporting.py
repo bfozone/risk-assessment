@@ -29,9 +29,6 @@ import numpy as np
 import pandas as pd
 
 
-# ─────────────────────────────────────────────
-# HELPER: JSON serialiser for numpy types
-# ─────────────────────────────────────────────
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles numpy scalar and array types.
@@ -53,9 +50,6 @@ class NumpyEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-# ─────────────────────────────────────────────
-# 1. RISK METRICS JSON
-# ─────────────────────────────────────────────
 
 def write_metrics_json(metrics: dict, output_dir: Path) -> Path:
     """Write VaR/CVaR and component VaR metrics to JSON.
@@ -74,10 +68,6 @@ def write_metrics_json(metrics: dict, output_dir: Path) -> Path:
     print(f"  Wrote {path}")
     return path
 
-
-# ─────────────────────────────────────────────
-# 2. BACKTEST RESULTS JSON
-# ─────────────────────────────────────────────
 
 def write_backtest_json(backtest_results: dict, output_dir: Path) -> Path:
     """Write backtest results to JSON.
@@ -108,9 +98,6 @@ def write_backtest_json(backtest_results: dict, output_dir: Path) -> Path:
     return path
 
 
-# ─────────────────────────────────────────────
-# 3. SCENARIO RESULTS CSV
-# ─────────────────────────────────────────────
 
 def write_scenarios_csv(scenario_results: pd.DataFrame, output_dir: Path) -> Path:
     """Write stress scenario results to CSV.
@@ -125,9 +112,6 @@ def write_scenarios_csv(scenario_results: pd.DataFrame, output_dir: Path) -> Pat
     return path
 
 
-# ─────────────────────────────────────────────
-# 4. BACKTEST PLOT (stretch output)
-# ─────────────────────────────────────────────
 
 def plot_backtest(
     var_series: pd.Series,
@@ -192,9 +176,6 @@ def plot_backtest(
     return path
 
 
-# ─────────────────────────────────────────────
-# 5. CORRELATION HEATMAP (stretch output)
-# ─────────────────────────────────────────────
 
 def plot_correlation_heatmap(returns: pd.DataFrame, output_dir: Path) -> Path:
     """Create and save a correlation heatmap of instrument returns.
@@ -246,9 +227,6 @@ def plot_correlation_heatmap(returns: pd.DataFrame, output_dir: Path) -> Path:
     return path
 
 
-# ─────────────────────────────────────────────
-# 6. HUMAN-READABLE SUMMARY (stretch output)
-# ─────────────────────────────────────────────
 
 def write_summary_text(
     metrics: dict,

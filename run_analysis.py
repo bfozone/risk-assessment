@@ -13,18 +13,6 @@ WHAT THIS DOES (in order):
   6. Apply stress scenarios
   7. Write all outputs to ./output/
 
-KEY CONCEPT — PORTFOLIO RETURNS:
-  We have price time series for 18 instruments.
-  We pivot to a wide DataFrame (dates × instruments), then compute
-  log returns: r_t = ln(P_t / P_{t-1}).
-
-  Log returns are preferred over simple returns for two reasons:
-    1. Additive over time: log returns compound correctly.
-    2. Better statistical properties (more symmetric, less skewed).
-
-  The PORTFOLIO return on day t is the weighted sum:
-    r_portfolio = sum_i (weight_i × r_i)
-  where weight_i is the fraction of the portfolio in instrument i.
 """
 
 from pathlib import Path
@@ -64,9 +52,6 @@ OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-# ─────────────────────────────────────────────
-# HELPER: compute portfolio and instrument returns
-# ─────────────────────────────────────────────
 
 def compute_returns(
     prices_clean: pd.DataFrame,
@@ -115,9 +100,6 @@ def compute_returns(
     return port_returns, instrument_returns
 
 
-# ─────────────────────────────────────────────
-# MAIN PIPELINE
-# ─────────────────────────────────────────────
 
 def main() -> None:
     print("\n── Step 1: Loading data ──────────────────────────────────")
