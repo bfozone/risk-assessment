@@ -161,14 +161,10 @@ def main() -> None:
         "cvar_parametric_95": compute_cvar_parametric(port_returns, 0.95),
         "cvar_parametric_99": compute_cvar_parametric(port_returns, 0.99),
         # EWMA VaR — decay 0.99 (slow fade, long memory)
-        "var_ewma_99_decay099":  compute_var_ewma(port_returns, 0.99, decay=0.99),
         "var_ewma_99_decay098":  compute_var_ewma(port_returns, 0.99, decay=0.98),
-        "cvar_ewma_99_decay099": compute_cvar_ewma(port_returns, 0.99, decay=0.99),
         "cvar_ewma_99_decay098": compute_cvar_ewma(port_returns, 0.99, decay=0.98),
         # EWMA VaR at 95% confidence as well, for completeness
-        "var_ewma_95_decay099":  compute_var_ewma(port_returns, 0.95, decay=0.99),
         "var_ewma_95_decay098":  compute_var_ewma(port_returns, 0.95, decay=0.98),
-        "cvar_ewma_95_decay099": compute_cvar_ewma(port_returns, 0.95, decay=0.99),
         "cvar_ewma_95_decay098": compute_cvar_ewma(port_returns, 0.95, decay=0.98),
         "component_var_by_subclass": comp_var_by_subclass,
     }

@@ -269,16 +269,7 @@ def write_summary_text(
         "",
         "EWMA-WEIGHTED VaR & CVaR  (recent returns up-weighted)",
         "-" * 40,
-        "  λ=0.99 slow fade (long memory)  |  λ=0.98 fast fade (reacts quickly)",
-        "",
-        f"  EWMA VaR  95% λ=0.99: {metrics['var_ewma_95_decay099']:.4f}  "
-        f"(CHF {metrics['var_ewma_95_decay099'] * nav:>14,.0f})",
-        f"  EWMA VaR  99% λ=0.99: {metrics['var_ewma_99_decay099']:.4f}  "
-        f"(CHF {metrics['var_ewma_99_decay099'] * nav:>14,.0f})",
-        f"  EWMA CVaR 95% λ=0.99: {metrics['cvar_ewma_95_decay099']:.4f}  "
-        f"(CHF {metrics['cvar_ewma_95_decay099'] * nav:>14,.0f})",
-        f"  EWMA CVaR 99% λ=0.99: {metrics['cvar_ewma_99_decay099']:.4f}  "
-        f"(CHF {metrics['cvar_ewma_99_decay099'] * nav:>14,.0f})",
+        " λ=0.98 fast fade (reacts quickly)",
         "",
         f"  EWMA VaR  95% λ=0.98: {metrics['var_ewma_95_decay098']:.4f}  "
         f"(CHF {metrics['var_ewma_95_decay098'] * nav:>14,.0f})",
