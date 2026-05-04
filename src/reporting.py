@@ -269,16 +269,16 @@ def write_summary_text(
         "",
         "EWMA-WEIGHTED VaR & CVaR  (recent returns up-weighted)",
         "-" * 40,
-        " λ=0.98 fast fade (reacts quickly)",
+        " λ=0.97 fast fade (reacts quickly)",
         "",
-        f"  EWMA VaR  95% λ=0.98: {metrics['var_ewma_95_decay098']:.4f}  "
-        f"(CHF {metrics['var_ewma_95_decay098'] * nav:>14,.0f})",
-        f"  EWMA VaR  99% λ=0.98: {metrics['var_ewma_99_decay098']:.4f}  "
-        f"(CHF {metrics['var_ewma_99_decay098'] * nav:>14,.0f})",
-        f"  EWMA CVaR 95% λ=0.98: {metrics['cvar_ewma_95_decay098']:.4f}  "
-        f"(CHF {metrics['cvar_ewma_95_decay098'] * nav:>14,.0f})",
-        f"  EWMA CVaR 99% λ=0.98: {metrics['cvar_ewma_99_decay098']:.4f}  "
-        f"(CHF {metrics['cvar_ewma_99_decay098'] * nav:>14,.0f})",
+        f"  EWMA VaR  95% λ=0.97: {metrics['var_ewma_95_decay097']:.4f}  "
+        f"(CHF {metrics['var_ewma_95_decay097'] * nav:>14,.0f})",
+        f"  EWMA VaR  99% λ=0.97: {metrics['var_ewma_99_decay097']:.4f}  "
+        f"(CHF {metrics['var_ewma_99_decay097'] * nav:>14,.0f})",
+        f"  EWMA CVaR 95% λ=0.97: {metrics['cvar_ewma_95_decay097']:.4f}  "
+        f"(CHF {metrics['cvar_ewma_95_decay097'] * nav:>14,.0f})",
+        f"  EWMA CVaR 99% λ=0.97: {metrics['cvar_ewma_99_decay097']:.4f}  "
+        f"(CHF {metrics['cvar_ewma_99_decay097'] * nav:>14,.0f})",
         "",
         "COMPONENT VAR BY SUB-CLASS",
         "-" * 40,

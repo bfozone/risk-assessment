@@ -106,11 +106,11 @@ def _ewma_weights(n: int, decay: float) -> np.ndarray:
       more weight to recent returns and less to old ones.
 
       The weight for a return that is k days ago is proportional to λ^k,
-      where λ (lambda) is the decay factor (e.g. 0.99 or 0.98).
+      where λ (lambda) is the decay factor (e.g. 0.99 or 0.97).
 
       λ = 0.99 → slow decay: yesterday counts 1% more than two days ago.
                  Old data fades slowly. Good for capturing long-run risk.
-      λ = 0.98 → faster decay: recent data matters much more.
+      λ = 0.97 → faster decay: recent data matters much more.
                  Reacts more quickly to volatility spikes (or calm periods).
 
     HOW WE BUILD THE WEIGHT VECTOR:
@@ -145,12 +145,9 @@ def _ewma_weights(n: int, decay: float) -> np.ndarray:
 def compute_var_ewma(
     returns: pd.Series,
     confidence: float = 0.99,
-    decay: float = 0.98,
+    decay: float = 0.97,
 ) -> float:
     """Compute EWMA-weighted historical VaR.
-
-    This is like historical VaR, but instead of treating all past
-    returns equally, we weight them so that recent days matter more.
 
     METHOD — weighted quantile:
       1. Compute EWMA weights (recent days get higher weight).
@@ -161,7 +158,7 @@ def compute_var_ewma(
     Args:
         returns: Series of daily returns (newest last, or date-indexed).
         confidence: Confidence level (e.g. 0.99).
-        decay: EWMA decay factor λ (e.g. 0.99 or 0.98).
+        decay: EWMA decay factor λ (e.g. 0.99 or 0.97).
 
     Returns
     -------
@@ -192,12 +189,9 @@ def compute_var_ewma(
 def compute_cvar_ewma(
     returns: pd.Series,
     confidence: float = 0.99,
-    decay: float = 0.98,
+    decay: float = 0.97,
 ) -> float:
     """Compute EWMA-weighted CVaR (Expected Shortfall).
-
-    Like EWMA VaR, but we take the weighted average of all tail returns
-    (those beyond the VaR threshold) rather than just the threshold itself.
 
     METHOD:
       1. Compute EWMA weights and VaR threshold.
