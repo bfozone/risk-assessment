@@ -53,7 +53,7 @@ Historical simulation is clearly preferred here. However, one year of data is in
 
 ### EWMA-Weighted VaR
 
-EWMA VaR addresses the main weakness of plain historical VaR by exponentially down-weighting older returns. A decay factor λ = 0.98 gives a return from 100 days ago roughly 13% of the weight of today's return.
+EWMA VaR addresses the main weakness of plain historical VaR by exponentially down-weighting older returns. A decay factor λ = 0.97 gives a return from 100 days ago roughly 5% of the weight of today's return.
 
 | Decay | Behaviour | Best used when |
 |-------|-----------|---------------|
